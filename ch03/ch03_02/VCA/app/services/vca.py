@@ -4,7 +4,6 @@
 
 # pip install wheel
 # pip install google-adk google-generativeai
-# pip install rich
 
 import os
 import asyncio
