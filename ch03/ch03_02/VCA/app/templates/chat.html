@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibe Coding Assistant</title>
+</head>
+<body>
+    <div id="container">
+        <h2>Coding Assistant</h2>
+        <div id="content">
+            <div class="chat-area">
+                <!-- 채팅 내용이 표시될 영역 -->
+                <label for="messageInput">Message:</label>
+                <input type="text" id="messageInput" placeholder="프로그램의 결과물, 기능 요구사항 등을 입력하세요">
+                <button id="sendButton">요청사항 전송</button>
+                <button id="stopButton" disabled>응답 중단</button>
+                <h3>Messages:</h3>
+                <div id="messages"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function createWebSocket() {
+            if (!socket) {
+                socket = new WebSocket('ws://localhost:8000/chat');
+                // socket = new WebSocket('ws://IP 주소/chat');
+                // socket = new WebSocket('wss://호스트 및 도메인 주소/chat');
+                
+                socket.addEventListener('open', () => {
+                    console.log('WebSocket connected');
+                    addMessage('WebSocket connected');
+                });
+
+                // 서버 앱으로부터 웹소켓을 통해 메시지 도착
+                socket.addEventListener('message', (event) => {
+                    if (event.data.startsWith('```')) {
+                        if (!currentAssistantMessage) { //  start of a code
+                            // 새로운 Assistant 메시지 시작
+                            addMessage('Assistant:');
+
+                            currentAssistantMessage = document.createElement('div');
+                            codeWrapper = document.createElement('pre');
+                            codeText = document.createElement('code');
+                            
+                            codeWrapper.appendChild(codeText);
+                            currentAssistantMessage.appendChild(codeWrapper);
+                            document.getElementById('messages').appendChild(currentAssistantMessage);
+                        }
+                        // else {  // end of a code
+                        // }
+                    } else if (event.data.startsWith('--- Full Response:')) {
+                        // 전체 응답 완료 표시
+                        currentAssistantMessage = null;
+                        isGeneratingResponse = false;
+                        updateSendButton();
+                        updateStopButton();
+                        addMessage('--- 응답 완료 ---');
+                    } else if (event.data.includes('Response generation stopped') || event.data.includes('was interrupted')) {
+                        currentAssistantMessage = null;
+                        isGeneratingResponse = false;
+                        updateSendButton();
+                        updateStopButton();
+                        addMessage('Assistant: ' + event.data);
+                    } else {
+                        if (currentAssistantMessage) { // displaying a code line
+                            codeText.innerHTML = codeText.innerHTML + event.data;
+                        }
+                        else {
+                            addMessage('Assistant: ' + event.data);
+                        }
+                    }
+                });
+
+                socket.addEventListener('close', () => {
+                    addMessage('WebSocket disconnected.');
+                    socket = null;
+                    isGeneratingResponse = false;
+                    updateStopButton();
+                });
+
+                socket.addEventListener('error', (error) => {
+                    console.error('WebSocket error:', error);
+                    addMessage('WebSocket error.');
+                });
+            }
+        }
+
+        // 페이지 로드 시 웹소켓 연결
+        window.addEventListener('load', createWebSocket);
+
+        let socket = null;      //  웹 소켓 객체
+        let currentAssistantMessage = null;     //  Coding Assistant의 응답
+        let isGeneratingResponse = false;       //  응답 중단은 Coding Assistant가 응답 중일때만 가능
+        let codeWrapper = null; //  <pre>...</pre>
+        let codeText = null;    //  <code>...</code>
+
+        function addMessage(message) {
+            const messagesDiv = document.querySelector('#messages');
+            const newMessage = document.createElement('div');
+            newMessage.appendChild(document.createTextNode(message));
+            messagesDiv.appendChild(newMessage);
+        }
+
+        function updateSendButton() {
+            const sendButton = document.getElementById('sendButton');
+            if (isGeneratingResponse) {
+                sendButton.disabled = true;
+            } else {
+                sendButton.disabled = false;
+            }
+        }
+
+        function updateStopButton() {
+            const stopButton = document.getElementById('stopButton');
+            if (isGeneratingResponse) {
+                stopButton.disabled = false;
+            } else {
+                stopButton.disabled = true;
+            }
+        }
+
+        const sendButton = document.querySelector('#sendButton');
+        const stopButton = document.querySelector('#stopButton');
+
+        sendButton.addEventListener('click', () => {
+            const messageInput = document.querySelector('#messageInput');
+            const message = messageInput.value;
+
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                const chatMessage = {
+                    type: 'chat'
+                    , message: message
+                }
+
+                socket.send(JSON.stringify(chatMessage));
+                addMessage(`You: ${message}`);
+                messageInput.value = '';
+                currentAssistantMessage = null; // 새로운 응답을 위해 초기화
+                
+                // 응답 생성 시작
+                isGeneratingResponse = true;
+                updateSendButton();
+                updateStopButton();
+            } else {
+                addMessage('WebSocket is not connected.');
+            }
+        });
+
+        stopButton.addEventListener('click', () => {
+            const stopMessage = {
+                type: 'stop'
+                , message: null
+            }
+
+            if (socket && socket.readyState === WebSocket.OPEN && isGeneratingResponse) {
+                socket.send(JSON.stringify(stopMessage));
+                addMessage('You: STOP.');
+                isGeneratingResponse = false;
+                updateSendButton();
+                updateStopButton();
+            }
+        });
+
+        // Enter 키로 메시지 전송
+        document.getElementById('messageInput').addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                sendButton.click();
+            }
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if(socket) {
+                socket.close();
+                socket = null;
+            }
+        });        
+    </script>
+</body>
+</html>
