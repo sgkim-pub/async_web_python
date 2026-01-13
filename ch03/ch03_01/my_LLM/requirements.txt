@@ -1,0 +1,15 @@
+wheel==0.45.1
+fastapi==0.116.1
+uvicorn==0.35.0
+python-multipart==0.0.20
+aiomysql==0.2.0
+bcrypt==4.3.0
+python-jose==3.5.0
+cryptography==45.0.5
+celery==5.5.3
+SQLAlchemy==2.0.41
+mysqlclient==2.2.7
+websockets==15.0.1
+chromadb==1.0.15
+openai==1.99.1
+litellm==1.78.0

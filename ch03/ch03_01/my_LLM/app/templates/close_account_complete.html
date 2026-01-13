@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>계정 삭제 완료 - my LLM</title>
+</head>
+<body>
+    <div id="container">
+        <h2>계정 삭제 완료</h2>
+        <div id="content">
+            <div>
+                <p>계정이 삭제되었습니다. 안녕히 가세요.</p>
+                <p>
+                    <a href="/" id="homeLink">메인 페이지로 이동</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 페이지 로드 시 sessionStorage에서 access_token 제거 (혹시 남아있을 경우)
+        window.addEventListener('load', function() {
+            sessionStorage.removeItem('access_token');
+        });
+
+        // 메인 페이지 링크 클릭 이벤트
+        document.getElementById('homeLink').addEventListener('click', function(e) {
+            e.preventDefault();
+            window.location.replace('/');
+        });
+    </script>
+</body>
+</html>

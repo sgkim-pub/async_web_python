@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat - my LLM</title>
+</head>
+<body>
+    <div id="container">
+        <h2>Chat</h2>
+        <div id="content">
+            <div class="links">
+                <a href="#" id="logoutLink" class="btn btn-logout">Log out</a>
+                <a href="#" id="closeAccountLink" class="btn btn-reset">Close account</a>
+            </div>
+            <div class="cache_statistics">
+                <p id="collection_name"></p>
+                <p id="total_records"></p>
+                <p id="latest_timestamp_YMDHMS"></p>
+            </div>
+            <div class="chat-area">
+                <!-- 채팅 내용이 표시될 영역 -->
+                <label for="messageInput">Message:</label>
+                <input type="text" id="messageInput" placeholder="메시지를 입력하세요">
+                <button id="sendButton">메시지 전송</button>
+                <button id="stopButton" disabled>응답 중단</button>
+                <h3>Messages:</h3>
+                <div id="messages"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 페이지 로드 시 access_token 확인
+        function checkAccessToken() {
+            const accessToken = sessionStorage.getItem('access_token');
+            if (!accessToken) {
+                // access_token이 없으면 index.html로 리다이렉트
+                window.location.replace('/');
+            }
+            else {
+                createWebSocket();
+            }
+        }
+
+        // 페이지 로드 시 즉시 토큰 확인
+        window.addEventListener('load', checkAccessToken);
+
+        const logoutLink = document.getElementById('logoutLink');
+        if (logoutLink) {
+            logoutLink.addEventListener('click', async function(e) {
+                e.preventDefault();
+
+                try {
+                    sessionStorage.removeItem('access_token');
+                    window.location.replace('/logout');
+                } catch (err) {
+                    console.log('logoutLink.addEventListener.error:', err);
+                } finally {
+                    window.location.replace('/logout');
+                }
+            });
+        }
+
+        const closeAccountLink = document.getElementById('closeAccountLink');
+        if (closeAccountLink) {
+            closeAccountLink.addEventListener('click', async function(e) {
+                e.preventDefault();
+
+                try {
+                    window.location.replace('/close_account');
+                } catch (err) {
+                    console.log('closeAccountLink.addEventListener.error:', err);
+                } finally {
+                    window.location.replace('/close_account');
+                }
+            });
+        }
+
+        let socket = null;      //  웹 소켓 객체
+        let currentAssistantMessage = null;     //  LLM의 응답
+        let isGeneratingResponse = false;   //  응답 중단은 LLM이 응답 중일때만 가능
+
+        function sendAuthToken() {
+            const authMessage = {
+                type: 'auth'
+                , message: null
+            }
+            const accessToken = sessionStorage.getItem('access_token');
+
+            if (accessToken) {
+                authMessage["message"] = accessToken;
+            }
+
+            socket.send(JSON.stringify(authMessage));
+        }
+
+        function createWebSocket() {
+            if (!socket) {
+                socket = new WebSocket('ws://localhost:8000/chat');
+                // socket = new WebSocket('ws://IP 주소/chat');
+                // socket = new WebSocket('wss://호스트 및 도메인 주소/chat');
+                
+                socket.addEventListener('open', () => {
+                    console.log('WebSocket connected');
+                    addMessage('WebSocket connected');
+
+                    sendAuthToken();    //  사용자 마다 각기 다른 대화 캐시(cache)를 사용하기 위함. 
+                });
+
+                // 서버 앱으로부터 웹소켓을 통해 메시지 도착
+                socket.addEventListener('message', (event) => {
+                    // Assistant 응답인지 확인
+                    if (event.data.startsWith('Assistant: ')) {
+                        const content = event.data.substring(11);   // 응답에서 "Assistant: " 제거
+                        
+                        if (!currentAssistantMessage) {
+                            // 새로운 Assistant 메시지 시작
+                            currentAssistantMessage = document.createElement('div');
+                            currentAssistantMessage.innerHTML = '<strong>Assistant:</strong> ';
+                            document.getElementById('messages').appendChild(currentAssistantMessage);
+                        }
+                        
+                        //  토큰 단위로 들어오는 응답을 현재 응답에 이어서 표시
+                        currentAssistantMessage.innerHTML += content;
+                    } else if (event.data.startsWith('--- Full Response:')) {
+                        // 전체 응답 완료 표시
+                        currentAssistantMessage = null;
+                        isGeneratingResponse = false;
+                        updateStopButton();
+                        addMessage('--- 응답 완료 ---');
+                        updateCacheInfo();
+                    } else if (event.data.includes('Response generation stopped') || event.data.includes('was interrupted')) {
+                        currentAssistantMessage = null;
+                        isGeneratingResponse = false;
+                        updateStopButton();
+                        addMessage(event.data);
+                    } else {
+                        addMessage(event.data);
+                    }
+                });
+
+                socket.addEventListener('close', () => {
+                    addMessage('WebSocket disconnected');
+                    socket = null;
+                    isGeneratingResponse = false;
+                    updateStopButton();
+                });
+
+                socket.addEventListener('error', (error) => {
+                    console.error('WebSocket error:', error);
+                    addMessage('WebSocket error');
+                });
+            }
+        }
+
+        function addMessage(message) {
+            const messagesDiv = document.querySelector('#messages');
+            const newMessage = document.createElement('div');
+            newMessage.appendChild(document.createTextNode(message));
+            messagesDiv.appendChild(newMessage);
+        }
+
+        function updateStopButton() {
+            const stopButton = document.getElementById('stopButton');
+            if (isGeneratingResponse) {
+                stopButton.disabled = false;
+            } else {
+                stopButton.disabled = true;
+            }
+        }
+
+        const sendButton = document.querySelector('#sendButton');
+        const stopButton = document.querySelector('#stopButton');
+
+        sendButton.addEventListener('click', () => {
+            const messageInput = document.querySelector('#messageInput');
+            const message = messageInput.value;
+
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                const chatMessage = {
+                    type: 'chat'
+                    , message: message
+                }
+
+                socket.send(JSON.stringify(chatMessage));
+                addMessage(`You: ${message}`);
+                messageInput.value = '';
+                currentAssistantMessage = null; // 새로운 응답을 위해 초기화
+                
+                // 응답 생성 시작
+                isGeneratingResponse = true;
+                updateStopButton();
+            } else {
+                addMessage('WebSocket is not connected.');
+            }
+        });
+
+        stopButton.addEventListener('click', () => {
+            const stopMessage = {
+                type: 'stop'
+                , message: null
+            }
+
+            if (socket && socket.readyState === WebSocket.OPEN && isGeneratingResponse) {
+                socket.send(JSON.stringify(stopMessage));
+                addMessage('You: STOP.');
+                isGeneratingResponse = false;
+                updateStopButton();
+            }
+        });
+
+        async function getCacheInfo() {
+            const accessToken = sessionStorage.getItem("access_token");
+            const headers = {'Authorization': `Bearer ${accessToken}`}
+
+            let respJSON = null;
+
+            try {
+                const response = await fetch('/cache/info', {
+                    method: 'GET'
+                    , headers: headers
+                });
+
+                respJSON = await response.json();
+            } catch (error) {
+                console.log('getCacheInfo().오류가 발생했습니다: ', error.message)
+            }
+
+            return respJSON;
+        }
+
+        async function updateCacheInfo() {
+            const collectionNameP = document.querySelector('#collection_name');
+            const totalRecordsP = document.querySelector('#total_records');
+            const latestTimestampYMDHMSP = document.querySelector('#latest_timestamp_YMDHMS');
+            
+            const cacheInfo = await getCacheInfo();
+
+            if (cacheInfo) {
+                // collection_name 업데이트
+                if (collectionNameP) {
+                    collectionNameP.textContent = `Collection: ${cacheInfo.collection_name || 'N/A'}`;
+                }
+
+                // total_records 업데이트
+                if (totalRecordsP) {
+                    totalRecordsP.textContent = `Total Records: ${cacheInfo.total_records || 0}`;
+                }
+
+                // latest_timestamp_YMDHMS 업데이트
+                if (latestTimestampYMDHMSP) {
+                    latestTimestampYMDHMSP.textContent = `Latest Update: ${cacheInfo.latest_timestamp_YMDHMS || 'N/A'}`;
+                }
+            }
+        }
+
+        // Enter 키로 메시지 전송
+        document.getElementById('messageInput').addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                sendButton.click();
+            }
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if(socket) {
+                socket.close();
+                socket = null;
+            }
+        });        
+    </script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>회원가입 - my LLM</title>
+</head>
+<body>
+    <div>
+        <h2>회원가입</h2>
+        <form id="signupForm">
+            <div>
+                <label for="username">사용자명:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            
+            <div>
+                <label for="password">비밀번호:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            
+            <div>
+                <label for="confirmPassword">비밀번호 확인:</label>
+                <input type="password" id="confirmPassword" name="confirmPassword" required>
+            </div>
+            
+            <div>
+                <button type="submit">제출</button>
+                <button type="button" onclick="cancelSignup()">취소</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // 이메일 형식 검증 함수
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+        
+        // 폼 유효성 검사 및 제출 버튼 활성화/비활성화
+        function validateForm() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const submitButton = document.querySelector('button[type="submit"]');
+            
+            // 이메일 형식 검증
+            const isEmailValid = isValidEmail(username);
+            
+            // 비밀번호 일치 검증
+            const isPasswordMatch = password === confirmPassword && password !== '';
+            
+            // 제출 버튼 활성화/비활성화
+            if (isEmailValid && isPasswordMatch) {
+                submitButton.disabled = false;
+            } else {
+                submitButton.disabled = true;
+            }
+        }
+        
+        // 입력 필드에 이벤트 리스너 추가
+        document.getElementById('username').addEventListener('input', validateForm);
+        document.getElementById('password').addEventListener('input', validateForm);
+        document.getElementById('confirmPassword').addEventListener('input', validateForm);
+        
+        // 페이지 로드 시 초기 검증
+        window.addEventListener('load', function() {
+            validateForm();
+        });
+        
+        document.getElementById('signupForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            // 이메일 형식 검증
+            if (!isValidEmail(username)) {
+                alert('올바른 이메일 형식을 입력해주세요.');
+                return;
+            }
+            
+            // 비밀번호 확인 검증
+            if (password !== confirmPassword) {
+                alert('비밀번호가 일치하지 않습니다.');
+                return;
+            }
+            
+            // FormData 객체 생성 및 데이터 추가
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('password', password);
+            
+            try {
+                const response = await fetch('/signup', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const respJSON = await response.json();
+
+                if (respJSON["success"] === true) {
+                    // alert('회원가입이 완료되었습니다.');
+                    window.location.replace('/signup_complete')
+                } else {
+                    alert('회원가입에 실패했습니다. ' + respJSON["content"]);
+                }
+            } catch (error) {
+                console.error('회원가입 요청 중 오류 발생:', error);
+                alert('회원가입 요청 중 오류가 발생했습니다.');
+            }
+        });
+        
+        function cancelSignup() {
+            // 메인 페이지로 이동
+            window.location.replace('/');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>계정 삭제 - my LLM</title>
+</head>
+<body>
+    <div id="container">
+        <h2>계정 삭제</h2>
+        <div id="content">
+            <!-- 동적으로 내용이 변경됩니다 -->
+        </div>
+    </div>
+
+    <script>
+        function checkAuthStatus() {
+            const accessToken = sessionStorage.getItem('access_token');
+            const contentDiv = document.getElementById('content');
+            
+            if (accessToken) {
+                // 로그인된 상태 - 계정 삭제 폼 표시
+                contentDiv.innerHTML = `
+                    <div>
+                        <p>계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
+                        <p>계정 삭제를 확인하려면 비밀번호를 입력해주세요.</p>
+                    </div>
+                    <form id="closeAccountForm">
+                        <div>
+                            <label for="password">비밀번호:</label>
+                            <input type="password" id="password" name="password" required>
+                        </div>
+                        <div>
+                            <button type="submit" id="confirmBtn" disabled>확인</button>
+                            <button type="button" id="cancelBtn">취소</button>
+                        </div>
+                    </form>
+                `;
+
+                // 비밀번호 입력 필드와 제출 버튼 참조
+                const passwordInput = document.getElementById('password');
+                const confirmBtn = document.getElementById('confirmBtn');
+                const cancelBtn = document.getElementById('cancelBtn');
+
+                // 비밀번호 입력 시 제출 버튼 활성화/비활성화
+                function updateSubmitState() {
+                    const hasPassword = passwordInput.value.trim().length > 0;
+                    confirmBtn.disabled = !hasPassword;
+                }
+
+                passwordInput.addEventListener('input', updateSubmitState);
+
+                // 취소 버튼 클릭 이벤트
+                cancelBtn.addEventListener('click', function() {
+                    window.location.replace('/chat');
+                });
+
+                // 폼 제출 이벤트
+                document.getElementById('closeAccountForm').addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const password = passwordInput.value;
+
+                    // 비밀번호가 입력되었는지 확인
+                    if (!password.trim()) {
+                        alert('비밀번호를 입력해주세요.');
+                        return;
+                    }
+
+                    // 사용자에게 최종 확인
+                    const finalConfirm = confirm('정말로 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
+                    if (!finalConfirm) {
+                        return;
+                    }
+
+                    const headers = {'Authorization': `Bearer ${accessToken}`}
+
+                    const reqBody = new FormData();
+                    reqBody.append("password", password);
+                    
+                    try {
+                        const response = await fetch('/close_account', {
+                            method: 'POST'
+                            , body: reqBody
+                            , headers: headers
+                        });
+
+                        const respJSON = await response.json();
+
+                        if (respJSON["success"] === true) {
+                            // 토큰 제거
+                            sessionStorage.removeItem('access_token');
+                            // 계정 삭제 완료 페이지로 이동
+                            window.location.replace('/close_account_complete');
+                        } else {
+                            alert('계정 삭제에 실패했습니다: ' + respJSON["content"]);
+                        }
+                    } catch (error) {
+                        alert('오류가 발생했습니다: ' + error.message);
+                    }
+                });
+
+            } else {
+                // 로그인되지 않은 상태 - index.html로 리다이렉트
+                window.location.replace('/');
+            }
+        }
+
+        // 페이지 로드 시 인증 상태 확인
+        window.addEventListener('load', checkAuthStatus);
+        
+        // sessionStorage 변경 감지
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'access_token') {
+                checkAuthStatus();
+            }
+        });
+    </script>
+</body>
+</html>

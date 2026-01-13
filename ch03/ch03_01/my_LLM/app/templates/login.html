@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인 - my LLM</title>
+</head>
+<body>
+    <h2>로그인</h2>
+    <form id="loginForm">
+        <div>
+            <label for="username">사용자명:</label>
+            <input type="email" id="username" name="username" required>
+        </div>
+        <div>
+            <label for="password">비밀번호:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        
+        <div>
+            <button type="submit" id="submitBtn" disabled>제출</button>
+            <button type="button" onclick="window.location.href='/'">취소</button>
+        </div>
+    </form>
+
+    <script>
+        const emailInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const submitBtn = document.getElementById('submitBtn');
+
+        function updateSubmitState() {
+            const isEmailValid = emailInput.checkValidity();
+            const hasPassword = passwordInput.value.trim().length > 0;
+            submitBtn.disabled = !(isEmailValid && hasPassword);
+        }
+
+        emailInput.addEventListener('input', updateSubmitState);
+        passwordInput.addEventListener('input', updateSubmitState);
+        document.addEventListener('DOMContentLoaded', updateSubmitState);
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const reqBody = new FormData();
+            reqBody.append("username", username);
+            reqBody.append("password", password);
+            reqBody.append("grant_type", "password");   // required by OAuth2
+            
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    body: reqBody
+                });
+
+                const respJSON = await response.json();
+
+                if(respJSON["success"] === true) {
+                    sessionStorage.setItem('access_token', respJSON["content"]["access_token"]);
+                    window.location.replace('/chat');
+                } else {
+                    alert('로그인 실패: ' + respJSON["content"]);
+                    window.location.replace('/login');
+                }
+            } catch (error) {
+                alert('오류가 발생했습니다: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
