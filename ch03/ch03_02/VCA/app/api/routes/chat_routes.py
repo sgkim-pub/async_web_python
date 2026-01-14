@@ -122,10 +122,9 @@ async def chat(
                     print('chat_routes.py.chat().codingAssistant.runCodingAssistant().response:\n', response)
                 except asyncio.CancelledError:
                     print('chat_routes.py.chat().currentRunCodingAssistantTask cancelled.')
-                    currentRunCodingAssistantTask = None
                     continue
-                
-                currentRunCodingAssistantTask = None
+                finally:
+                    currentRunCodingAssistantTask = None
                 
                 # 응답을 스트리밍으로 전송
                 currentSendChunkTask = asyncio.create_task(sendChunk(ws, response))
@@ -133,10 +132,9 @@ async def chat(
                     fullResponse = await currentSendChunkTask
                 except asyncio.CancelledError:
                     print('chat_routes.py.chat().currentSendChunkTask cancelled.')
-                    currentSendChunkTask = None
                     continue
-
-                currentSendChunkTask = None
+                finally:
+                    currentSendChunkTask = None
 
                 print('chat_routes.py.chat().fullResponse:', fullResponse)
 
