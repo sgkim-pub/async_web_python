@@ -6,38 +6,32 @@
     <title>계정 삭제 - my LLM</title>
 </head>
 <body>
-    <div id="container">
+    <div>
         <h2>계정 삭제</h2>
-        <div id="content">
-            <!-- 동적으로 내용이 변경됩니다 -->
+        <div>
+            <div>
+                <p>계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
+                <p>계정 삭제를 확인하려면 비밀번호를 입력해주세요.</p>
+            </div>
+            <form id="closeAccountForm">
+                <div>
+                    <label for="password">비밀번호:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <div>
+                    <button type="submit" id="confirmBtn" disabled>확인</button>
+                    <button type="button" id="cancelBtn">취소</button>
+                </div>
+            </form>
         </div>
     </div>
 
     <script>
         function checkAuthStatus() {
             const accessToken = sessionStorage.getItem('access_token');
-            const contentDiv = document.getElementById('content');
             
             if (accessToken) {
-                // 로그인된 상태 - 계정 삭제 폼 표시
-                contentDiv.innerHTML = `
-                    <div>
-                        <p>계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
-                        <p>계정 삭제를 확인하려면 비밀번호를 입력해주세요.</p>
-                    </div>
-                    <form id="closeAccountForm">
-                        <div>
-                            <label for="password">비밀번호:</label>
-                            <input type="password" id="password" name="password" required>
-                        </div>
-                        <div>
-                            <button type="submit" id="confirmBtn" disabled>확인</button>
-                            <button type="button" id="cancelBtn">취소</button>
-                        </div>
-                    </form>
-                `;
-
-                // 비밀번호 입력 필드와 제출 버튼 참조
+                // 비밀번호 입력창과 제출 버튼 참조
                 const passwordInput = document.getElementById('password');
                 const confirmBtn = document.getElementById('confirmBtn');
                 const cancelBtn = document.getElementById('cancelBtn');
