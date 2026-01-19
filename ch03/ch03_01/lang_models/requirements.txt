@@ -1,0 +1,4 @@
+wheel==0.45.1
+huggingface-hub==0.34.4
+transformers==4.55.4
+accelerate==1.10.1
